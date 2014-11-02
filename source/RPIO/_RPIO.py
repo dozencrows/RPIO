@@ -109,7 +109,7 @@ class Interruptor:
         self._tcp_server_sockets[serversocket.fileno()] = (serversocket, cb)
         debug("Socket server started at port %s and callback added." % port)
 
-    def add_interrupt_callback(self, gpio_id, callback, edge='both',
+    def add_interrupt_callback(self, channel, callback, edge='both',
             pull_up_down=_GPIO.PUD_OFF, threaded_callback=False,
             debounce_timeout_ms=None):
         """
@@ -122,7 +122,7 @@ class Interruptor:
         If `threaded_callback` is True, the callback will be started
         inside a Thread.
         """
-        gpio_id = _GPIO.channel_to_gpio(gpio_id)
+        gpio_id = _GPIO.channel_to_gpio(channel)
         debug("Adding callback for GPIO %s" % gpio_id)
         if not edge in ["falling", "rising", "both", "none"]:
             raise AttributeError("'%s' is not a valid edge." % edge)
@@ -136,12 +136,12 @@ class Interruptor:
             raise AttributeError("GPIO %s is not a valid gpio-id." % gpio_id)
 
         # Require INPUT pin setup; and set the correct PULL_UPDN
-        if RPIO.gpio_function(int(gpio_id)) == RPIO.IN:
-            RPIO.set_pullupdn(gpio_id, pull_up_down)
+        if RPIO.gpio_function(int(channel)) == RPIO.IN:
+            RPIO.set_pullupdn(channel, pull_up_down)
         else:
             debug("- changing gpio function from %s to INPUT" % \
                     (GPIO_FUNCTIONS[RPIO.gpio_function(int(gpio_id))]))
-            RPIO.setup(gpio_id, RPIO.IN, pull_up_down)
+            RPIO.setup(channel, RPIO.IN, pull_up_down)
 
         # Prepare the callback (wrap in Thread if needed)
         cb = callback if not threaded_callback else \
