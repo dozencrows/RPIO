@@ -262,8 +262,9 @@ class Interruptor:
         # Start the callback(s) now
         gpio_id = self._map_fileno_to_gpioid[fileno]
         if gpio_id in self._map_gpioid_to_callbacks:
+            channel = _GPIO.gpio_to_channel(gpio_id)
             for cb in self._map_gpioid_to_callbacks[gpio_id]:
-                cb(gpio_id, val)
+                cb(channel, val)
 
     def close_tcp_client(self, fileno):
         debug("closing client socket fd %s" % fileno)

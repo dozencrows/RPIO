@@ -60,7 +60,7 @@ static const int (*pin_to_gpio)[27];
 #define HEADER_P1 0<<8
 #define HEADER_P5 5<<8
 static const int gpio_to_pin_rev1[32] = {3, 5, -1, -1, 7, -1, -1, 26, 24, 21, 19, 23, -1, -1, 8, 10, -1, 11, 12, -1, -1, 13, 15, 16, 18, 22, -1, -1, -1, -1, -1, -1};
-static const int gpio_to_pin_rev2[32] = {-1, -1, 3, 5, 7, -1, -1, 26, 24, 21, 19, 23, -1, -1, 8, 10, -1, 11, 12, -1, -1, -1, 15, 16, 18, 22, -1, 15, 3 | HEADER_P5, 4 | HEADER_P5, 5 | HEADER_P5, 6 | HEADER_P5};
+static const int gpio_to_pin_rev2[32] = {-1, -1, 3, 5, 7, -1, -1, 26, 24, 21, 19, 23, -1, -1, 8, 10, -1, 11, 12, -1, -1, -1, 15, 16, 18, 22, -1, 13, 3 | HEADER_P5, 4 | HEADER_P5, 5 | HEADER_P5, 6 | HEADER_P5};
 static const int (*gpio_to_pin)[32];
 
 // Flag whether to show warnings
@@ -188,6 +188,36 @@ channel_to_gpio(int channel)
 
     //printf("channel2bcm: %d -> %d", channel, gpio);
     return gpio;
+}
+
+// gpio_to_channel tries to convert the supplied gpio-id to
+// a channel ID based on current setmode. On error it sets the
+// Python error string and returns a value < 0.
+static int
+gpio_to_channel(int gpio)
+{
+    int channel;
+
+	if (gpio_mode != BOARD && gpio_mode != BCM) {
+		PyErr_SetString(ModeNotSetException, "Please set pin numbering mode using RPIO.setmode(RPIO.BOARD) or RPIO.setmode(RPIO.BCM)");
+		return -1;
+	}
+
+	if (gpio < 0 || gpio > 31) {
+        PyErr_SetString(InvalidChannelException, "The gpio sent is invalid on a Raspberry Pi (outside of range)");
+        return -2;
+	}
+
+	if ((channel = bcm_to_board(gpio)) == -1) {
+	   PyErr_SetString(InvalidChannelException, "The gpio sent is invalid on a Raspberry Pi (not a valid pin)");
+	   return -3;
+	}
+
+    if (gpio_mode == BCM) {
+    	return gpio;
+    } else {
+    	return channel;
+    }
 }
 
 static int
@@ -423,6 +453,23 @@ py_channel_to_gpio(PyObject *self, PyObject *args)
     return func;
 }
 
+// channel2gpio binding
+static PyObject*
+py_gpio_to_channel(PyObject *self, PyObject *args)
+{
+    int gpio, channel;
+    PyObject *func;
+
+    if (!PyArg_ParseTuple(args, "i", &gpio))
+        return NULL;
+
+    if ((channel = gpio_to_channel(gpio)) < 0)
+        return NULL;
+
+    func = Py_BuildValue("i", channel);
+    return func;
+}
+
 PyMethodDef rpi_gpio_methods[] = {
     {"setup", (PyCFunction)py_setup_channel, METH_VARARGS | METH_KEYWORDS, "Set up the GPIO channel, direction and (optional) pull/up down control\nchannel    - Either: RPi board pin number (not BCM GPIO 00..nn number).  Pins start from 1\n                or     : BCM GPIO number\ndirection - INPUT or OUTPUT\n[pull_up_down] - PUD_OFF (default), PUD_UP or PUD_DOWN\n[initial]        - Initial value for an output channel"},
     {"cleanup", py_cleanup, METH_VARARGS, "Clean up by resetting all GPIO channels that have been used by this program\nto INPUT with no pullup/pulldown and no event detection"},
@@ -437,6 +484,7 @@ PyMethodDef rpi_gpio_methods[] = {
     {"set_pullupdn", (PyCFunction)py_set_pullupdn, METH_VARARGS | METH_KEYWORDS, "Set pullup or -down resistor on a GPIO channel."},
     {"gpio_function", py_gpio_function, METH_VARARGS, "Return the current GPIO function (IN, OUT, ALT0)"},
     {"channel_to_gpio", py_channel_to_gpio, METH_VARARGS, "Return BCM or BOARD id of channel (depending on current setmode)"},
+    {"gpio_to_channel", py_gpio_to_channel, METH_VARARGS, "Return BOARD or BCM id of channel (depending on current setmode)"},
     {NULL, NULL, 0, NULL}
 };
 
