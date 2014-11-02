@@ -214,10 +214,14 @@ class Interruptor:
             # Add to epoll
             self._epoll.register(f.fileno(), select.EPOLLPRI | select.EPOLLERR)
 
-    def del_interrupt_callback(self, gpio_id):
+    def del_interrupt_callback(self, channel):
         """ Delete all interrupt callbacks from a certain gpio """
+        gpio_id = _GPIO.channel_to_gpio(channel)
+        self.del_interrupt_callback_bcm(gpio_id)
+
+
+    def del_interrupt_callback_bcm(self, gpio_id):
         debug("- removing interrupts on gpio %s" % gpio_id)
-        gpio_id = _GPIO.channel_to_gpio(gpio_id)
         fileno = self._map_gpioid_to_fileno[gpio_id]
 
         # 1. Remove from epoll
@@ -334,7 +338,7 @@ class Interruptor:
         debug("Cleaning up interfaces...")
         for gpio_id in self._gpio_kernel_interfaces_created:
             # Close the value-file and remove interrupt bindings
-            self.del_interrupt_callback(gpio_id)
+            self.del_interrupt_callback_bcm(gpio_id)
 
             # Remove the kernel GPIO interface
             debug("- unexporting GPIO %s" % gpio_id)
